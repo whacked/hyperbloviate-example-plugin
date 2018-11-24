@@ -1,0 +1,78 @@
+(var plugin-info
+     {description: "example"})
+
+(def start-plugin! (control-element view-element)
+     (console.info "control with" control-element)
+     (console.info "view with" view-element)
+     (var init-url "https://www.example.com"
+          url-input (m-prop init-url)
+          debug-text (m-prop ""))
+     (m.mount
+      control-element
+      {view:
+       (#>
+        (m-miccup
+         ["div"
+          ["h2" "example!"]
+          ["fieldset"
+           ["legend" "location"]
+           ["input"
+            {type: "text"
+             style: {fontSize: "large"
+                     width: "100%"}
+             value: (url-input)
+             onchange: (#(evt)
+                         (url-input (get evt 'target 'value)))}]
+           ["button" {onclick: (#> (|> (getWebview)
+                                       (.setAttribute 'src (url-input))))}
+            "go!"]]
+          ["div"
+           {id: "inject-container"
+            class: "to-inject"}
+           ["fieldset"
+            ["legend" "webview interaction"]
+            ["button"
+             {id: "test-button"
+              onclick: (#> (|> (getWebview)
+                               (execJs "location.href"
+                                       (#(loc)
+                                         (alert (+ "Webiew says hello from "
+                                                   loc))))))}
+             "hello from webview"]
+            ["button" {onclick: (#> (|> (getWebview)
+                                        (.openDevTools)))}
+             "openDevTools"]
+            ["button" {onclick: (#> (|> (getWebview)
+                                        (.closeDevTools)))}
+             "closeDevTools"]
+            ["button"
+             {onclick: (#> (getWebviewHtml
+                            0
+                            (#(html)
+                              (console.info "===" html "===")
+                              (debug-text html)
+                              (m.redraw))))}
+             "get html"]
+            ["div"
+             ["textarea"
+              {style: {height: "4em"
+                       width: "100%"}}
+              debug-text]]]]
+          ]))})
+     
+     (m.mount
+      view-element
+      {oncreate: (#(vnode)
+                   (var dom-node (get vnode "dom"))
+                   ;; important -- needed for JS interaction
+                   (dom-node.addEventListener
+                    "did-finish-load"
+                    (#> (Hyperbloviate.bindWebviewInterop dom-node))))
+       view: (#> (m-miccup ["webview"
+                            {src: init-url
+                             allowRunningInsecureContent: true
+                             preload: "webview_preload.js"}]))}))
+
+(set exports
+     'info plugin-info
+     'start start-plugin!)
